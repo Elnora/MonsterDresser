@@ -1,6 +1,7 @@
 // (c) Copyright HutongGames, LLC 2010-2013. All rights reserved.
 
 using HutongGames.Editor;
+using HutongGames.PlayMaker;
 using UnityEditor;
 using UnityEngine;
 
@@ -67,6 +68,35 @@ namespace HutongGames.PlayMakerEditor
             return instance != null;
         }
 
+        public static void OpenInEditor(PlayMakerFSM fsmComponent)
+        {
+            if (!IsOpen())
+            {
+                OpenWindow(fsmComponent);
+            }
+            else
+            {
+                FocusWindowIfItsOpen<FsmEditorWindow>();
+                FsmEditor.SelectFsm(fsmComponent.FsmTemplate == null ? fsmComponent.Fsm : fsmComponent.FsmTemplate.fsm);
+            }
+        }
+
+        public static void OpenInEditor(Fsm fsm)
+        {
+            if (fsm.Owner != null)
+            {
+                OpenInEditor(fsm.Owner as PlayMakerFSM);
+            }
+        }
+
+        public static void OpenInEditor(GameObject go)
+        {
+            if (go != null)
+            {
+                OpenInEditor(FsmSelection.FindFsmOnGameObject(go));
+            }
+        }
+
         private static FsmEditorWindow instance;
 
         [SerializeField]
@@ -127,6 +157,8 @@ namespace HutongGames.PlayMakerEditor
 
             if (Event.current.type == EventType.ExecuteCommand)
             {
+                RepaintAllWindows();
+
                 switch (Event.current.commandName)
                 {
                     /* replaced with Undo.undoRedoPerformed callback added in Unity 4.3
@@ -135,20 +167,27 @@ namespace HutongGames.PlayMakerEditor
                         break;
                     */
 
+                    // NOTE: OSX 2018.3 needs Event.current.Use();
+                    // otherwise e.g., it pastes twice #1814
+
                     case "Cut":
                         FsmEditor.Cut();
+                        Event.current.Use();
                         break;
 
                     case "Copy":
                         FsmEditor.Copy();
+                        Event.current.Use();
                         break;
 
                     case "Paste":
                         FsmEditor.Paste();
+                        Event.current.Use();
                         break;
 
                     case "SelectAll":
                         FsmEditor.SelectAll();
+                        Event.current.Use();
                         break;
 
                     case "OpenWelcomeWindow":
@@ -205,14 +244,17 @@ namespace HutongGames.PlayMakerEditor
 
                     case "AddFsmComponent":
                         PlayMakerMainMenu.AddFsmToSelected();
+                        Event.current.Use();
                         break;
 
                     case "RepaintAll":
                         RepaintAllWindows();
+                        Event.current.Use();
                         break;
 
                     case "ChangeLanguage":
                         ResetWindowTitles();
+                        Event.current.Use();
                         break;
                 }
 

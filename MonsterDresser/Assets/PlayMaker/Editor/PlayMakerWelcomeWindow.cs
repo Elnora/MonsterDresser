@@ -1,4 +1,4 @@
-﻿// (c) Copyright HutongGames, LLC 2010-2016. All rights reserved.
+﻿// (c) Copyright HutongGames, LLC 2010-2018. All rights reserved.
 
 #if (UNITY_4_3 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7 || UNITY_5_0) 
 #define UNITY_PRE_5_1
@@ -18,7 +18,8 @@ namespace HutongGames.PlayMakerEditor
     public class PlayMakerWelcomeWindow : EditorWindow
     {
         // Remember to update version info since it's used by export scripts!
-        public const string InstallCurrentVersion = "1.8.9";
+        public const string InstallCurrentVersion = "1.9.0";
+        public const string InstallAssemblyVersion = "1.9.0.p16";
         public const string InstallBetaVersion = "";
         public const string Version = InstallCurrentVersion + " " + InstallBetaVersion;
 
@@ -27,18 +28,11 @@ namespace HutongGames.PlayMakerEditor
         private const string urlTutorials = "http://www.hutonggames.com/tutorials.html";
         private const string urlDocs = "https://hutonggames.fogbugz.com/default.asp?W1";
         private const string urlForums = "http://hutonggames.com/playmakerforum/index.php";
-        private const string urlPhotonAddon = "https://hutonggames.fogbugz.com/default.asp?W928";
-        private const string urlAddonsWiki = "https://hutonggames.fogbugz.com/default.asp?W714";
-        private const string urlEcosystemWiki = "https://hutonggames.fogbugz.com/default.asp?W1181";
-        //private const string urlStore = "http://www.hutonggames.com/store.html";
-        //private const string photonID = "1786";
 
         private const float windowWidth = 500;
         private const float windowHeight = 440;
         private const float pageTop = 70;
         private const float pagePadding = 95;
-
-        private static bool setupPhoton;
 
         private static string currentVersion;
         private static string currentVersionLabel;
@@ -78,12 +72,11 @@ namespace HutongGames.PlayMakerEditor
         private static Texture videosIcon;
         private static Texture forumsIcon;
         private static Texture addonsIcon;
-        private static Texture photonIcon;
         private static Texture backButton;
 
         private static bool stylesInitialized;
 
-#if PLAYMAKER_1_8_9
+#if PLAYMAKER_1_9_0
         [MenuItem("PlayMaker/Welcome Screen", false, 500)]
 #elif PLAYMAKER
         [MenuItem("PlayMaker/Update PlayMaker", false, 500)]
@@ -92,12 +85,42 @@ namespace HutongGames.PlayMakerEditor
 #endif
         public static void OpenWelcomeWindow()
         {
-            GetWindow<PlayMakerWelcomeWindow>(true);
+            var window = GetWindow<PlayMakerWelcomeWindow>(true);
+            window.SetPage(Page.Welcome);
+            PlayMakerAddonManager.ResetView();
+
+            // give window a chance to draw first:
+            EditorApplication.update += CheckUnityVersion;
         }
 
         public static void Open()
         {
             OpenWelcomeWindow();
+        }
+
+        public static void CheckUnityVersion()
+        {
+            EditorApplication.update -= CheckUnityVersion;
+
+            DoUnityVersionCheck();
+        }
+
+        private static bool DoUnityVersionCheck()
+        {
+            if (!EditorStartupPrefs.IsUnityVersionCompatible())
+            {
+                DoFailedUnityVersionDialog();
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void DoFailedUnityVersionDialog()
+        {
+            EditorUtility.DisplayDialog("PlayMaker",
+                "This installer is for Unity " + EditorStartupPrefs.UnityBuildVersion + " and higher!" +
+                "\n\nPlease re-download and import PlayMaker in the Asset Store to get the correct package for this version of Unity.", "OK");
         }
 
         public void OnEnable()
@@ -116,8 +139,8 @@ namespace HutongGames.PlayMakerEditor
             // Is this the install for the student version?
             isStudentVersion = AssetGUIDs.IsStudentVersionInstall();
 
-            // Is PlayMakerPhotonWizard available?
-            setupPhoton = PlayMakerEditorStartup.GetType("PlayMakerPhotonWizard") != null;
+            // Init add-ons manager
+            PlayMakerAddonManager.Init();
 
             // Setup pages
 
@@ -127,9 +150,9 @@ namespace HutongGames.PlayMakerEditor
             backButtonRect = new Rect(0, windowHeight-24, 123, 24);
 
             // Save page to survive recompile...?
-            //currentPage = (Page)EditorPrefs.GetInt(editorPrefsPage, (int)Page.Welcome);
+            currentPage = (Page)EditorPrefs.GetInt(editorPrefsSavedPage, (int)Page.Welcome);
             
-            currentPage = Page.Welcome;
+            //currentPage = Page.Welcome;
 
             // We want to show the Upgrade Guide after installing
 
@@ -145,6 +168,11 @@ namespace HutongGames.PlayMakerEditor
 
             SetPage(currentPage);               
             Update();
+        }
+
+        protected void OnDisable()
+        {
+            PlayMakerAddonManager.SaveSettings();
         }
 
         private static void GetPlayMakerVersion()
@@ -214,7 +242,6 @@ namespace HutongGames.PlayMakerEditor
                 docsIcon = (Texture) Resources.Load("linkDocs");
                 forumsIcon = (Texture) Resources.Load("linkForums");
                 addonsIcon = (Texture) Resources.Load("linkAddons");
-                photonIcon = (Texture) Resources.Load("photonIcon");
                 backButton = (Texture) Resources.Load("backButton");
             }
             stylesInitialized = true;
@@ -375,14 +402,14 @@ namespace HutongGames.PlayMakerEditor
             if (isStudentVersion)
             {
                 DrawLink(samplesIcon,
-                    "Install PlayMaker Student Version " + InstallCurrentVersion,
+                    "Install PlayMaker Student Version " + InstallAssemblyVersion,
                     "The current official release.",
                     InstallLatestStudent, null);
             }
             else
             {
                 DrawLink(samplesIcon,
-                    "Install PlayMaker " + InstallCurrentVersion,
+                    "Install PlayMaker " + InstallAssemblyVersion,
                     "The current official release.",
                     InstallLatest, null);
             }
@@ -499,39 +526,7 @@ namespace HutongGames.PlayMakerEditor
 
         private static void DoAddonsPage()
         {
-            GUILayout.BeginVertical();
-            GUILayout.FlexibleSpace();
-
-            DrawLink(addonsIcon,
-                 "Ecosystem",
-                 "An integrated online browser for custom actions, samples and addons.",
-                 OpenUrl, urlEcosystemWiki);
-
-            DrawLink(addonsIcon,
-                 "Add-Ons",
-                 "Find action packs and add-ons for NGUI, 2D Toolkit, Mecanim, Pathfinding, Smooth Moves, Ultimate FPS...",
-                 OpenUrl, urlAddonsWiki);
-
-            if (setupPhoton)
-            {
-                DrawLink(photonIcon,
-                     "Photon Cloud",
-                     "Build scalable MMOGs, FPS or any other multiplayer game " +
-                     "and application for PC, Mac, Browser, Mobile or Console.",
-                     LaunchPhotonSetupWizard, null);
-            }
-            else
-            {
-                DrawLink(photonIcon,
-                     "Photon Cloud",
-                     "Build scalable MMOGs, FPS or any other multiplayer game " +
-                     "and application for PC, Mac, Browser, Mobile or Console.",
-                     OpenUrl, urlPhotonAddon);
-            }
-
-            GUILayout.FlexibleSpace();
-            GUILayout.EndVertical();
-
+            PlayMakerAddonManager.OnGUI();
         }
 
         private static void ShowBackupHelpBox()
@@ -627,12 +622,16 @@ namespace HutongGames.PlayMakerEditor
 
         private static void PreUpdateCheck(object userData)
         {
+            if (!DoUnityVersionCheck()) return;
+
             PreUpdateChecker.Open();
         }
 
         private static void InstallLatest(object userData)
         {
-            if (DisplayInstallDialog(InstallCurrentVersion, "The latest release version of PlayMaker." +
+            if (!DoUnityVersionCheck()) return;
+
+            if (DisplayInstallDialog(InstallAssemblyVersion, "The latest release version of PlayMaker." +
                                                         "\n\nNOTE: Projects saved with PlayMaker 1.8+ cannot be opened in older versions of PlayMaker!"))
             {
                 EditorStartupPrefs.ShowUpgradeGuide = true; // show upgrade guide after importing
@@ -642,7 +641,7 @@ namespace HutongGames.PlayMakerEditor
 
         private static void InstallLatestStudent(object userData)
         {
-            if (DisplayInstallDialog("Student Version " + InstallCurrentVersion, "The latest student version of PlayMaker." +
+            if (DisplayInstallDialog("Student Version " + InstallAssemblyVersion, "The latest student version of PlayMaker." +
                                                             "\n\nNOTE: The Student Version is limited to built in actions only."))
             {
                 EditorStartupPrefs.ShowUpgradeGuide = true; // show upgrade guide after importing
@@ -678,11 +677,6 @@ namespace HutongGames.PlayMakerEditor
             //GotoPage(Page.UpgradeGuide);
         }
 
-        private static void LaunchPhotonSetupWizard(object userData)
-        {
-            PlayMakerEditorStartup.GetType("PlayMakerPhotonWizard").GetMethod("Init").Invoke(null, null);
-        }
-
         private static void OpenUrl(object userData)
         {
             Application.OpenURL(userData as string);
@@ -699,13 +693,12 @@ namespace HutongGames.PlayMakerEditor
             pageInTransition = true;
             transitionStartTime = Time.realtimeSinceStartup;
 
-            // special cases
-
+            /* Always open PreUpdateChecker...?
             if (nextPage == Page.Install)
             {
                 PreUpdateChecker.Open();
-            }
-
+            }*/
+                
             // next page slides in from the right
             // welcome screen slides offscreen left
             // reversed if returning to the welcome screen

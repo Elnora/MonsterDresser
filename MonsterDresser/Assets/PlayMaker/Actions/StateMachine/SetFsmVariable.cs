@@ -28,7 +28,6 @@ namespace HutongGames.PlayMaker.Actions
 
         private PlayMakerFSM targetFsm;
         private NamedVariable targetVariable;
-        private INamedVariable sourceVariable;
 
         private GameObject cachedGameObject;
         private string cachedFsmName;
@@ -92,6 +91,7 @@ namespace HutongGames.PlayMaker.Actions
                 return;
             }
 
+            setValue.UpdateValue();
             setValue.ApplyValueTo(targetVariable);
         }
 
